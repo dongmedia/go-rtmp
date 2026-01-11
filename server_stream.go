@@ -7,6 +7,10 @@ type Stream struct {
 
 	AudioChan chan *message.MediaPacket
 	VideoChan chan *message.MediaPacket
+
+	AACConfig []byte
+	SPS       []byte
+	PPS       []byte
 }
 
 func NewStream(id uint32) *Stream {

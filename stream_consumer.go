@@ -1,17 +1,42 @@
 package gortmp
 
-import "log"
+import (
+	"log"
+
+	"github.com/dongmedia/go-rtmp/message"
+)
 
 func ConsumeStream(s *Stream) {
 	go func() {
 		for a := range s.AudioChan {
-			log.Printf("[AUDIO] ts=%d size=%d\n", a.Timestamp, len(a.Payload))
+			pkt, err := message.ParseAAC(a.Payload)
+			if err != nil {
+				continue
+			}
+
+			if pkt.Type == message.AACSequenceHeader {
+				s.AACConfig = pkt.Payload
+				log.Println("[AAC] sequence header", len(pkt.Payload))
+			} else {
+				log.Println("[AAC] frame", len(pkt.Payload))
+			}
 		}
 	}()
 
 	go func() {
 		for v := range s.VideoChan {
-			log.Printf("[VIDEO] ts=%d size=%d\n", v.Timestamp, len(v.Payload))
+			pkt, err := message.ParseH264(v.Payload)
+			if err != nil {
+				continue
+			}
+
+			if pkt.Type == message.H264SequenceHeader {
+				parseAVCConfig(pkt.Payload, s)
+				log.Println("[H264] SPS/PPS")
+			} else {
+				log.Printf("[H264] frame key=%v size=%d\n",
+					pkt.IsKeyFrame, len(pkt.Payload))
+			}
 		}
 	}()
 }
