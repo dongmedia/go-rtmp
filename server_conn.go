@@ -8,6 +8,7 @@ import (
 
 type Conn struct {
 	conn      net.Conn
+	stream    *Stream
 	handshake HandshakeService
 }
 
@@ -31,25 +32,40 @@ func (c *Conn) Serve() {
 			return
 		}
 
-		if ch.TypeID != 20 {
-			continue
-		}
+		switch ch.TypeID {
 
-		cmd, err := message.DecodeCommand(ch.Payload)
-		if err != nil {
-			continue
-		}
+		case 20: // Command
+			cmd, err := message.DecodeCommand(ch.Payload)
+			if err != nil {
+				continue
+			}
 
-		switch cmd.Name {
+			switch cmd.Name {
 
-		case "connect":
-			writeConnectSuccess(c.conn, cmd.TransactionID)
+			case "connect":
+				writeConnectSuccess(c.conn, cmd.TransactionID)
 
-		case "createStream":
-			writeCreateStreamResult(c.conn, cmd.TransactionID, streamID)
+			case "createStream":
+				c.stream = NewStream(streamID)
+				ConsumeStream(c.stream)
+				writeCreateStreamResult(c.conn, cmd.TransactionID, streamID)
 
-		case "publish":
-			writePublishStart(c.conn, streamID)
+			case "publish":
+				writePublishStart(c.conn, streamID)
+			}
+
+		case 8, 9: // Audio / Video
+			if c.stream == nil {
+				continue
+			}
+
+			pkt := chunkToMediaPacket(ch)
+
+			if pkt.Type == message.MediaAudio {
+				c.stream.AudioChan <- pkt
+			} else {
+				c.stream.VideoChan <- pkt
+			}
 		}
 	}
 }
