@@ -1,7 +1,6 @@
 package gortmp
 
 import (
-	"log"
 	"net"
 
 	"github.com/dongmedia/go-rtmp/message"
@@ -23,21 +22,34 @@ func (c *Conn) Serve() {
 		return
 	}
 
-	chunkReader := NewChunkReader(c.conn)
+	rd := NewChunkReader(c.conn)
+	var streamID uint32 = 1
 
 	for {
-		ch, err := chunkReader.Read()
+		ch, err := rd.Read()
 		if err != nil {
 			return
 		}
 
-		if ch.TypeID == 20 { // command AMF0
-			cmd, _ := message.DecodeCommand(ch.Payload)
-			log.Println("CMD:", cmd.Name)
+		if ch.TypeID != 20 {
+			continue
+		}
 
-			if cmd.Name == "connect" {
-				writeConnectSuccess(c.conn, cmd.TransactionID)
-			}
+		cmd, err := message.DecodeCommand(ch.Payload)
+		if err != nil {
+			continue
+		}
+
+		switch cmd.Name {
+
+		case "connect":
+			writeConnectSuccess(c.conn, cmd.TransactionID)
+
+		case "createStream":
+			writeCreateStreamResult(c.conn, cmd.TransactionID, streamID)
+
+		case "publish":
+			writePublishStart(c.conn, streamID)
 		}
 	}
 }
