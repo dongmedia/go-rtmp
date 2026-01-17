@@ -1,7 +1,7 @@
 package gortmp
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/dongmedia/go-rtmp/message"
 )
@@ -11,14 +11,15 @@ func ConsumeStream(s *Stream) {
 		for a := range s.AudioChan {
 			pkt, err := message.ParseAAC(a.Payload)
 			if err != nil {
+				select {
+				case s.ErrChan <- fmt.Errorf("parse AAC: %w", err):
+				default:
+				}
 				continue
 			}
 
 			if pkt.Type == message.AACSequenceHeader {
 				s.AACConfig = pkt.Payload
-				log.Println("[AAC] sequence header", len(pkt.Payload))
-			} else {
-				log.Println("[AAC] frame", len(pkt.Payload))
 			}
 		}
 	}()
@@ -27,15 +28,17 @@ func ConsumeStream(s *Stream) {
 		for v := range s.VideoChan {
 			pkt, err := message.ParseH264(v.Payload)
 			if err != nil {
+				select {
+				case s.ErrChan <- fmt.Errorf("parse H264: %w", err):
+				default:
+				}
 				continue
 			}
 
 			if pkt.Type == message.H264SequenceHeader {
-				parseAVCConfig(pkt.Payload, s)
-				log.Println("[H264] SPS/PPS")
-			} else {
-				log.Printf("[H264] frame key=%v size=%d\n",
-					pkt.IsKeyFrame, len(pkt.Payload))
+				if err := parseAVCConfig(pkt.Payload, s); err != nil {
+					s.ErrChan <- fmt.Errorf("parse avc config err: %v", err)
+				}
 			}
 		}
 	}()
