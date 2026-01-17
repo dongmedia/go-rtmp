@@ -29,6 +29,15 @@ func (c *Conn) Serve() error {
 	var streamID uint32 = 1
 
 	for {
+		// Check for stream consumer errors (non-blocking)
+		if c.stream != nil {
+			select {
+			case err := <-c.stream.ErrChan:
+				return fmt.Errorf("stream consumer err: %w", err)
+			default:
+			}
+		}
+
 		ch, err := rd.Read()
 		if err != nil {
 			if err == io.EOF {

@@ -7,6 +7,7 @@ type Stream struct {
 
 	AudioChan chan *message.MediaPacket
 	VideoChan chan *message.MediaPacket
+	ErrChan   chan error
 
 	AACConfig []byte
 	SPS       []byte
@@ -18,5 +19,6 @@ func NewStream(id uint32) *Stream {
 		ID:        id,
 		AudioChan: make(chan *message.MediaPacket, 1024),
 		VideoChan: make(chan *message.MediaPacket, 1024),
+		ErrChan:   make(chan error, 16),
 	}
 }
