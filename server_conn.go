@@ -15,7 +15,10 @@ type Conn struct {
 }
 
 func NewConn(c net.Conn) *Conn {
-	return &Conn{conn: c}
+	return &Conn{
+		conn:      c,
+		handshake: NewHandshakeService(),
+	}
 }
 
 func (c *Conn) Serve() error {
