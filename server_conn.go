@@ -1,6 +1,8 @@
 package gortmp
 
 import (
+	"fmt"
+	"io"
 	"net"
 
 	"github.com/dongmedia/go-rtmp/message"
@@ -16,11 +18,11 @@ func NewConn(c net.Conn) *Conn {
 	return &Conn{conn: c}
 }
 
-func (c *Conn) Serve() {
+func (c *Conn) Serve() error {
 	defer c.conn.Close()
 
 	if err := c.handshake.Do(c.conn); err != nil {
-		return
+		return fmt.Errorf("serve handshake err: %v", err)
 	}
 
 	rd := NewChunkReader(c.conn)
@@ -29,7 +31,10 @@ func (c *Conn) Serve() {
 	for {
 		ch, err := rd.Read()
 		if err != nil {
-			return
+			if err == io.EOF {
+				return nil // clean disconnect
+			}
+			return fmt.Errorf("read chunk err: %v", err)
 		}
 
 		switch ch.TypeID {
