@@ -1,7 +1,7 @@
 package gortmp
 
 import (
-	"errors"
+	"fmt"
 	"io"
 	"net"
 )
@@ -27,7 +27,7 @@ func (h *HandshakeService) Do(conn net.Conn) error {
 	}
 
 	if c0c1[0] != h.RtmpVersion {
-		return errors.New("unsupported rtmp version")
+		return fmt.Errorf("given rtmp version (%v) is unsupported rtmp version: %v", c0c1[0], h.RtmpVersion)
 	}
 
 	// S0+S1+S2
@@ -36,7 +36,7 @@ func (h *HandshakeService) Do(conn net.Conn) error {
 	copy(s0s1s2[1:], c0c1[1:])
 
 	if _, err := conn.Write(s0s1s2); err != nil {
-		return err
+		return fmt.Errorf("write handshake err: %v", err)
 	}
 
 	// C2
