@@ -48,7 +48,9 @@ func (c *Conn) Serve() error {
 			switch cmd.Name {
 
 			case "connect":
-				writeConnectSuccess(c.conn, cmd.TransactionID)
+				if err := writeConnectSuccess(c.conn, cmd.TransactionID); err != nil {
+					return fmt.Errorf("write connect success err: %v", err)
+				}
 
 			case "createStream":
 				c.stream = NewStream(streamID)
