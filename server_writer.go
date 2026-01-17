@@ -4,33 +4,34 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net"
+
+	"github.com/dongmedia/go-rtmp/amf"
 )
 
-func writeConnectSuccess(conn net.Conn, tx uint64) {
-	var amf bytes.Buffer
+func writeConnectSuccess(w *ChunkWriter, tx float64) error {
+	var p bytes.Buffer
+	_ = amf.EncodeString(&p, "_result")
+	_ = amf.EncodeNumber(&p, tx)
 
-	// _result
-	amf.Write([]byte{0x02, 0x00, 0x07})
-	amf.WriteString("_result")
+	// props (간단히 null 처리해도 되지만, OBS 호환을 위해 object를 넣는 것이 안전함)
+	// 여기서는 최소로 null + info object 형태로 단순화
+	_ = amf.EncodeNull(&p)
 
-	// transaction id
-	amf.WriteByte(0x00)
-	binary.Write(&amf, binary.BigEndian, float64(tx))
+	// info object (최소)
+	// AMF0 object를 제대로 구현하면 좋지만, 여기서는 아주 최소로 “null”로도 통과하는 환경이 많습니다.
+	// 다만 실패 시 object 구현을 추가해야 합니다.
+	_ = amf.EncodeNull(&p)
 
-	// null
-	amf.Write([]byte{0x05})
+	return w.WriteMessage(3, 0, 20, 0, p.Bytes())
+}
 
-	payload := amf.Bytes()
-
-	// chunk (fmt0, csid=3)
-	conn.Write([]byte{0x03})
-	conn.Write([]byte{
-		0x00, 0x00, 0x00,
-		byte(len(payload) >> 16), byte(len(payload) >> 8), byte(len(payload)),
-		0x14,
-		0x00, 0x00, 0x00, 0x00,
-	})
-	conn.Write(payload)
+func writeCreateStreamResult(w *ChunkWriter, tx float64, streamID uint32) error {
+	var p bytes.Buffer
+	_ = amf.EncodeString(&p, "_result")
+	_ = amf.EncodeNumber(&p, tx)
+	_ = amf.EncodeNull(&p)
+	_ = amf.EncodeNumber(&p, float64(streamID))
+	return w.WriteMessage(3, 0, 20, 0, p.Bytes())
 }
 
 func writePublishStart(conn net.Conn, streamID uint32) {
@@ -76,32 +77,59 @@ func writePublishStart(conn net.Conn, streamID uint32) {
 	conn.Write(payload)
 }
 
-func writeCreateStreamResult(conn net.Conn, tx uint64, streamID uint32) {
-	var amf bytes.Buffer
+// func writeConnectSuccess(conn net.Conn, tx uint64) {
+// 	var amf bytes.Buffer
 
-	// _result
-	amf.Write([]byte{0x02, 0x00, 0x07})
-	amf.WriteString("_result")
+// 	// _result
+// 	amf.Write([]byte{0x02, 0x00, 0x07})
+// 	amf.WriteString("_result")
 
-	// transaction id
-	amf.WriteByte(0x00)
-	binary.Write(&amf, binary.BigEndian, float64(tx))
+// 	// transaction id
+// 	amf.WriteByte(0x00)
+// 	binary.Write(&amf, binary.BigEndian, float64(tx))
 
-	// null
-	amf.Write([]byte{0x05})
+// 	// null
+// 	amf.Write([]byte{0x05})
 
-	// stream id
-	amf.WriteByte(0x00)
-	binary.Write(&amf, binary.BigEndian, float64(streamID))
+// 	payload := amf.Bytes()
 
-	payload := amf.Bytes()
+// 	// chunk (fmt0, csid=3)
+// 	conn.Write([]byte{0x03})
+// 	conn.Write([]byte{
+// 		0x00, 0x00, 0x00,
+// 		byte(len(payload) >> 16), byte(len(payload) >> 8), byte(len(payload)),
+// 		0x14,
+// 		0x00, 0x00, 0x00, 0x00,
+// 	})
+// 	conn.Write(payload)
+// }
 
-	conn.Write([]byte{0x03})
-	conn.Write([]byte{
-		0x00, 0x00, 0x00,
-		byte(len(payload) >> 16), byte(len(payload) >> 8), byte(len(payload)),
-		0x14,
-		0x00, 0x00, 0x00, 0x00,
-	})
-	conn.Write(payload)
-}
+// func writeCreateStreamResult(conn net.Conn, tx uint64, streamID uint32) {
+// 	var amf bytes.Buffer
+
+// 	// _result
+// 	amf.Write([]byte{0x02, 0x00, 0x07})
+// 	amf.WriteString("_result")
+
+// 	// transaction id
+// 	amf.WriteByte(0x00)
+// 	binary.Write(&amf, binary.BigEndian, float64(tx))
+
+// 	// null
+// 	amf.Write([]byte{0x05})
+
+// 	// stream id
+// 	amf.WriteByte(0x00)
+// 	binary.Write(&amf, binary.BigEndian, float64(streamID))
+
+// 	payload := amf.Bytes()
+
+// 	conn.Write([]byte{0x03})
+// 	conn.Write([]byte{
+// 		0x00, 0x00, 0x00,
+// 		byte(len(payload) >> 16), byte(len(payload) >> 8), byte(len(payload)),
+// 		0x14,
+// 		0x00, 0x00, 0x00, 0x00,
+// 	})
+// 	conn.Write(payload)
+// }
