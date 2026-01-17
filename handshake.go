@@ -23,7 +23,7 @@ func (h *HandshakeService) Do(conn net.Conn) error {
 	// C0+C1
 	c0c1 := make([]byte, 1537)
 	if _, err := io.ReadFull(conn, c0c1); err != nil {
-		return err
+		return fmt.Errorf("read connection full data err: %v", err)
 	}
 
 	if c0c1[0] != h.RtmpVersion {
@@ -41,6 +41,9 @@ func (h *HandshakeService) Do(conn net.Conn) error {
 
 	// C2
 	c2 := make([]byte, 1536)
-	_, err := io.ReadFull(conn, c2)
-	return err
+	if _, err := io.ReadFull(conn, c2); err != nil {
+		return fmt.Errorf("read full c2 connection data err: %v", err)
+	}
+
+	return nil
 }
