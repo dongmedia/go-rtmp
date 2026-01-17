@@ -2,6 +2,7 @@ package message
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/dongmedia/go-rtmp/amf"
 )
@@ -16,8 +17,14 @@ type Command struct {
 func DecodeCommand(payload []byte) (*Command, error) {
 	r := bytes.NewReader(payload)
 
-	name, _ := amf.Decode(r)
-	tx, _ := amf.Decode(r)
+	name, err := amf.Decode(r)
+	if err != nil {
+		return nil, fmt.Errorf("amf decode name from request payload err: %v", err)
+	}
+	tx, err := amf.Decode(r)
+	if err != nil {
+		return nil, fmt.Errorf("amf decode transaction from request payload err: %v", err)
+	}
 
 	var args []any
 	for r.Len() > 0 {
