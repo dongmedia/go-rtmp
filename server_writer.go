@@ -7,6 +7,50 @@ import (
 	"net"
 )
 
+func writeWindowAckSize(conn net.Conn, size uint32) error {
+	// Type 5: Window Acknowledgement Size
+	chunk := []byte{
+		0x02,                   // fmt=0, csid=2 (protocol control)
+		0x00, 0x00, 0x00,       // timestamp
+		0x00, 0x00, 0x04,       // message length = 4
+		0x05,                   // type id = 5
+		0x00, 0x00, 0x00, 0x00, // stream id = 0
+		byte(size >> 24), byte(size >> 16), byte(size >> 8), byte(size),
+	}
+	_, err := conn.Write(chunk)
+	return err
+}
+
+func writeSetPeerBandwidth(conn net.Conn, size uint32, limitType byte) error {
+	// Type 6: Set Peer Bandwidth
+	chunk := []byte{
+		0x02,                   // fmt=0, csid=2 (protocol control)
+		0x00, 0x00, 0x00,       // timestamp
+		0x00, 0x00, 0x05,       // message length = 5
+		0x06,                   // type id = 6
+		0x00, 0x00, 0x00, 0x00, // stream id = 0
+		byte(size >> 24), byte(size >> 16), byte(size >> 8), byte(size),
+		limitType, // 0=hard, 1=soft, 2=dynamic
+	}
+	_, err := conn.Write(chunk)
+	return err
+}
+
+func writeStreamBegin(conn net.Conn, streamID uint32) error {
+	// Type 4: User Control Message (Stream Begin = 0)
+	chunk := []byte{
+		0x02,                   // fmt=0, csid=2
+		0x00, 0x00, 0x00,       // timestamp
+		0x00, 0x00, 0x06,       // message length = 6
+		0x04,                   // type id = 4 (user control)
+		0x00, 0x00, 0x00, 0x00, // stream id = 0
+		0x00, 0x00, // event type = 0 (stream begin)
+		byte(streamID >> 24), byte(streamID >> 16), byte(streamID >> 8), byte(streamID),
+	}
+	_, err := conn.Write(chunk)
+	return err
+}
+
 func writeConnectSuccess(conn net.Conn, tx uint64) error {
 	var amf bytes.Buffer
 

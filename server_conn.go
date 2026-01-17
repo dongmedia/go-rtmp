@@ -60,9 +60,22 @@ func (c *Conn) Serve() error {
 			switch cmd.Name {
 
 			case "connect":
+				if err := writeWindowAckSize(c.conn, 2500000); err != nil {
+					return fmt.Errorf("write window ack size err: %v", err)
+				}
+				if err := writeSetPeerBandwidth(c.conn, 2500000, 2); err != nil {
+					return fmt.Errorf("write set peer bandwidth err: %v", err)
+				}
+				if err := writeStreamBegin(c.conn, 0); err != nil {
+					return fmt.Errorf("write stream begin err: %v", err)
+				}
 				if err := writeConnectSuccess(c.conn, cmd.TransactionID); err != nil {
 					return fmt.Errorf("write connect success err: %v", err)
 				}
+
+			case "releaseStream", "FCPublish":
+				// OBS sends these before publish - just acknowledge them
+				continue
 
 			case "createStream":
 				c.stream = NewStream(streamID)
