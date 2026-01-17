@@ -55,10 +55,14 @@ func (c *Conn) Serve() error {
 			case "createStream":
 				c.stream = NewStream(streamID)
 				ConsumeStream(c.stream)
-				writeCreateStreamResult(c.conn, cmd.TransactionID, streamID)
+				if err := writeCreateStreamResult(c.conn, cmd.TransactionID, streamID); err != nil {
+					return fmt.Errorf("write create stream result err: %v", err)
+				}
 
 			case "publish":
-				writePublishStart(c.conn, streamID)
+				if err := writePublishStart(c.conn, streamID); err != nil {
+					return fmt.Errorf("write publish start err: %v", err)
+				}
 			}
 
 		case 8, 9: // Audio / Video
