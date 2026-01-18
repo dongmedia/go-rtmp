@@ -3,6 +3,7 @@ package gortmp
 import (
 	"fmt"
 	"io"
+	"log"
 	"net"
 
 	"github.com/dongmedia/go-rtmp/message"
@@ -54,8 +55,11 @@ func (c *Conn) Serve() error {
 		case 20: // Command
 			cmd, err := message.DecodeCommand(ch.Payload)
 			if err != nil {
+				log.Printf("[RTMP] decode command err: %v", err)
 				continue
 			}
+
+			log.Printf("[RTMP] command: %s tx=%d args=%v", cmd.Name, cmd.TransactionID, cmd.Args)
 
 			switch cmd.Name {
 
@@ -74,17 +78,20 @@ func (c *Conn) Serve() error {
 				}
 
 			case "releaseStream", "FCPublish":
-				// OBS sends these before publish - just acknowledge them
-				continue
+				if err := writeCommandResult(c.conn, cmd.TransactionID); err != nil {
+					return fmt.Errorf("write command result err: %v", err)
+				}
 
 			case "createStream":
 				c.stream = NewStream(streamID)
-				ConsumeStream(c.stream)
 				if err := writeCreateStreamResult(c.conn, cmd.TransactionID, streamID); err != nil {
 					return fmt.Errorf("write create stream result err: %v", err)
 				}
 
 			case "publish":
+				if c.stream != nil {
+					ConsumeStream(c.stream)
+				}
 				if err := writePublishStart(c.conn, streamID); err != nil {
 					return fmt.Errorf("write publish start err: %v", err)
 				}

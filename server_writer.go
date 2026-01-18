@@ -10,9 +10,9 @@ import (
 func writeWindowAckSize(conn net.Conn, size uint32) error {
 	// Type 5: Window Acknowledgement Size
 	chunk := []byte{
-		0x02,                   // fmt=0, csid=2 (protocol control)
-		0x00, 0x00, 0x00,       // timestamp
-		0x00, 0x00, 0x04,       // message length = 4
+		0x02,             // fmt=0, csid=2 (protocol control)
+		0x00, 0x00, 0x00, // timestamp
+		0x00, 0x00, 0x04, // message length = 4
 		0x05,                   // type id = 5
 		0x00, 0x00, 0x00, 0x00, // stream id = 0
 		byte(size >> 24), byte(size >> 16), byte(size >> 8), byte(size),
@@ -24,9 +24,9 @@ func writeWindowAckSize(conn net.Conn, size uint32) error {
 func writeSetPeerBandwidth(conn net.Conn, size uint32, limitType byte) error {
 	// Type 6: Set Peer Bandwidth
 	chunk := []byte{
-		0x02,                   // fmt=0, csid=2 (protocol control)
-		0x00, 0x00, 0x00,       // timestamp
-		0x00, 0x00, 0x05,       // message length = 5
+		0x02,             // fmt=0, csid=2 (protocol control)
+		0x00, 0x00, 0x00, // timestamp
+		0x00, 0x00, 0x05, // message length = 5
 		0x06,                   // type id = 6
 		0x00, 0x00, 0x00, 0x00, // stream id = 0
 		byte(size >> 24), byte(size >> 16), byte(size >> 8), byte(size),
@@ -39,15 +39,64 @@ func writeSetPeerBandwidth(conn net.Conn, size uint32, limitType byte) error {
 func writeStreamBegin(conn net.Conn, streamID uint32) error {
 	// Type 4: User Control Message (Stream Begin = 0)
 	chunk := []byte{
-		0x02,                   // fmt=0, csid=2
-		0x00, 0x00, 0x00,       // timestamp
-		0x00, 0x00, 0x06,       // message length = 6
+		0x02,             // fmt=0, csid=2
+		0x00, 0x00, 0x00, // timestamp
+		0x00, 0x00, 0x06, // message length = 6
 		0x04,                   // type id = 4 (user control)
 		0x00, 0x00, 0x00, 0x00, // stream id = 0
 		0x00, 0x00, // event type = 0 (stream begin)
 		byte(streamID >> 24), byte(streamID >> 16), byte(streamID >> 8), byte(streamID),
 	}
 	_, err := conn.Write(chunk)
+	return err
+}
+
+// writeCommandResult sends a simple _result response for commands like releaseStream, FCPublish
+func writeCommandResult(conn net.Conn, tx uint64) error {
+	var amf bytes.Buffer
+
+	// _result
+	if _, err := amf.Write([]byte{0x02, 0x00, 0x07}); err != nil {
+		return fmt.Errorf("write amf result data err: %v", err)
+	}
+
+	if _, err := amf.WriteString("_result"); err != nil {
+		return fmt.Errorf("write amf result string err: %v", err)
+	}
+
+	// transaction id
+	if err := amf.WriteByte(0x00); err != nil {
+		return fmt.Errorf("write amf transaction id byte err: %v", err)
+	}
+	if err := binary.Write(&amf, binary.BigEndian, float64(tx)); err != nil {
+		return fmt.Errorf("write binary transaction err: %v", err)
+	}
+
+	// null (command object)
+	if _, err := amf.Write([]byte{0x05}); err != nil {
+		return fmt.Errorf("write amf command object null err: %v", err)
+	}
+
+	// undefined (response)
+	if _, err := amf.Write([]byte{0x06}); err != nil {
+		return fmt.Errorf("write amf response err: %v", err)
+	}
+
+	payload := amf.Bytes()
+
+	if _, err := conn.Write([]byte{0x03}); err != nil {
+		return fmt.Errorf("write connection payload err: %v", err)
+	} // fmt=0, csid=3
+	if _, err := conn.Write([]byte{
+		0x00, 0x00, 0x00,
+		byte(len(payload) >> 16), byte(len(payload) >> 8), byte(len(payload)),
+		0x14,
+		0x00, 0x00, 0x00, 0x00,
+	}); err != nil {
+		return fmt.Errorf("write connection payload data err: %v", err)
+	}
+
+	_, err := conn.Write(payload)
 	return err
 }
 
