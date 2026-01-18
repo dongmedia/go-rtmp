@@ -103,45 +103,132 @@ func writeCommandResult(conn net.Conn, tx uint64) error {
 func writeConnectSuccess(conn net.Conn, tx uint64) error {
 	var amf bytes.Buffer
 
-	// _result
+	// _result (string marker + length + string)
 	if _, err := amf.Write([]byte{0x02, 0x00, 0x07}); err != nil {
-		return fmt.Errorf("write amf result err: %v", err)
+		return fmt.Errorf("write amf result marker err: %v", err)
 	}
-
 	if _, err := amf.WriteString("_result"); err != nil {
 		return fmt.Errorf("write amf result string err: %v", err)
 	}
 
-	// transaction id
+	// transaction id (number marker + float64)
 	if err := amf.WriteByte(0x00); err != nil {
-		return fmt.Errorf("write amf transaction id err: %v", err)
+		return fmt.Errorf("write amf tx marker err: %v", err)
 	}
-
 	if err := binary.Write(&amf, binary.BigEndian, float64(tx)); err != nil {
-		return fmt.Errorf("write binary data err: %v", err)
+		return fmt.Errorf("write amf tx err: %v", err)
 	}
 
-	// null
-	if _, err := amf.Write([]byte{0x05}); err != nil {
-		return fmt.Errorf("write amf null bytes err: %v", err)
+	// Properties object
+	if err := amf.WriteByte(0x03); err != nil {
+		return fmt.Errorf("write props object marker err: %v", err)
+	}
+	// fmsVer
+	if _, err := amf.Write([]byte{0x00, 0x06}); err != nil {
+		return fmt.Errorf("write fmsVer key len err: %v", err)
+	}
+	if _, err := amf.WriteString("fmsVer"); err != nil {
+		return fmt.Errorf("write fmsVer key err: %v", err)
+	}
+	if _, err := amf.Write([]byte{0x02, 0x00, 0x0d}); err != nil {
+		return fmt.Errorf("write fmsVer val marker err: %v", err)
+	}
+	if _, err := amf.WriteString("FMS/3,0,1,123"); err != nil {
+		return fmt.Errorf("write fmsVer val err: %v", err)
+	}
+	// capabilities
+	if _, err := amf.Write([]byte{0x00, 0x0c}); err != nil {
+		return fmt.Errorf("write capabilities key len err: %v", err)
+	}
+	if _, err := amf.WriteString("capabilities"); err != nil {
+		return fmt.Errorf("write capabilities key err: %v", err)
+	}
+	if err := amf.WriteByte(0x00); err != nil {
+		return fmt.Errorf("write capabilities val marker err: %v", err)
+	}
+	if err := binary.Write(&amf, binary.BigEndian, float64(31)); err != nil {
+		return fmt.Errorf("write capabilities val err: %v", err)
+	}
+	// object end
+	if _, err := amf.Write([]byte{0x00, 0x00, 0x09}); err != nil {
+		return fmt.Errorf("write props object end err: %v", err)
+	}
+
+	// Information object
+	if err := amf.WriteByte(0x03); err != nil {
+		return fmt.Errorf("write info object marker err: %v", err)
+	}
+	// level
+	if _, err := amf.Write([]byte{0x00, 0x05}); err != nil {
+		return fmt.Errorf("write level key len err: %v", err)
+	}
+	if _, err := amf.WriteString("level"); err != nil {
+		return fmt.Errorf("write level key err: %v", err)
+	}
+	if _, err := amf.Write([]byte{0x02, 0x00, 0x06}); err != nil {
+		return fmt.Errorf("write level val marker err: %v", err)
+	}
+	if _, err := amf.WriteString("status"); err != nil {
+		return fmt.Errorf("write level val err: %v", err)
+	}
+	// code
+	if _, err := amf.Write([]byte{0x00, 0x04}); err != nil {
+		return fmt.Errorf("write code key len err: %v", err)
+	}
+	if _, err := amf.WriteString("code"); err != nil {
+		return fmt.Errorf("write code key err: %v", err)
+	}
+	if _, err := amf.Write([]byte{0x02, 0x00, 0x1d}); err != nil {
+		return fmt.Errorf("write code val marker err: %v", err)
+	}
+	if _, err := amf.WriteString("NetConnection.Connect.Success"); err != nil {
+		return fmt.Errorf("write code val err: %v", err)
+	}
+	// description
+	if _, err := amf.Write([]byte{0x00, 0x0b}); err != nil {
+		return fmt.Errorf("write description key len err: %v", err)
+	}
+	if _, err := amf.WriteString("description"); err != nil {
+		return fmt.Errorf("write description key err: %v", err)
+	}
+	if _, err := amf.Write([]byte{0x02, 0x00, 0x15}); err != nil {
+		return fmt.Errorf("write description val marker err: %v", err)
+	}
+	if _, err := amf.WriteString("Connection succeeded."); err != nil {
+		return fmt.Errorf("write description val err: %v", err)
+	}
+	// objectEncoding
+	if _, err := amf.Write([]byte{0x00, 0x0e}); err != nil {
+		return fmt.Errorf("write objectEncoding key len err: %v", err)
+	}
+	if _, err := amf.WriteString("objectEncoding"); err != nil {
+		return fmt.Errorf("write objectEncoding key err: %v", err)
+	}
+	if err := amf.WriteByte(0x00); err != nil {
+		return fmt.Errorf("write objectEncoding val marker err: %v", err)
+	}
+	if err := binary.Write(&amf, binary.BigEndian, float64(0)); err != nil {
+		return fmt.Errorf("write objectEncoding val err: %v", err)
+	}
+	// object end
+	if _, err := amf.Write([]byte{0x00, 0x00, 0x09}); err != nil {
+		return fmt.Errorf("write info object end err: %v", err)
 	}
 
 	payload := amf.Bytes()
 
-	// chunk (fmt0, csid=3)
+	// chunk header (fmt0, csid=3)
 	if _, err := conn.Write([]byte{0x03}); err != nil {
-		return fmt.Errorf("write chunk err: %v", err)
+		return fmt.Errorf("write chunk header err: %v", err)
 	}
-
 	if _, err := conn.Write([]byte{
-		0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, // timestamp
 		byte(len(payload) >> 16), byte(len(payload) >> 8), byte(len(payload)),
-		0x14,
-		0x00, 0x00, 0x00, 0x00,
+		0x14,                   // type id = 20 (command)
+		0x00, 0x00, 0x00, 0x00, // stream id = 0
 	}); err != nil {
-		return fmt.Errorf("write chunk payload data err: %v", err)
+		return fmt.Errorf("write chunk msg header err: %v", err)
 	}
-
 	if _, err := conn.Write(payload); err != nil {
 		return fmt.Errorf("write chunk payload err: %v", err)
 	}
