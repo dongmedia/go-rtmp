@@ -39,12 +39,14 @@ func (c *Conn) Serve() error {
 			case err := <-c.stream.ErrChan:
 				return fmt.Errorf("stream consumer err: %w", err)
 			default:
+				log.Println("stream default case")
 			}
 		}
 
 		ch, err := rd.Read()
 		if err != nil {
 			if err == io.EOF {
+				log.Printf("read channel is io.EOF")
 				return nil // clean disconnect
 			}
 			return fmt.Errorf("read chunk err: %v", err)
@@ -64,6 +66,8 @@ func (c *Conn) Serve() error {
 			switch cmd.Name {
 
 			case "connect":
+				log.Println("[RTMP] connect case start")
+
 				if err := writeWindowAckSize(c.conn, 2500000); err != nil {
 					return fmt.Errorf("write window ack size err: %v", err)
 				}
@@ -77,28 +81,45 @@ func (c *Conn) Serve() error {
 					return fmt.Errorf("write connect success err: %v", err)
 				}
 
+				log.Println("[RTMP] finished connect")
+
 			case "releaseStream", "FCPublish":
+				log.Println("[RTMP] releaseStream and FCPublish case start")
+
 				if err := writeCommandResult(c.conn, cmd.TransactionID); err != nil {
 					return fmt.Errorf("write command result err: %v", err)
 				}
 
+				log.Println("[RTMP] releaseStream/FCPublish finished connect")
+
 			case "createStream":
+				log.Printf("[RTMP] createStream case start: %v", streamID)
+
 				c.stream = NewStream(streamID)
 				if err := writeCreateStreamResult(c.conn, cmd.TransactionID, streamID); err != nil {
 					return fmt.Errorf("write create stream result err: %v", err)
 				}
 
+				log.Println("[RTMP] createStream finished")
+
 			case "publish":
+				log.Printf("[RTMP] publish case start: %v", streamID)
+
 				if c.stream != nil {
+					log.Printf("[RTMP] publish start consume stream start: %v", streamID)
 					ConsumeStream(c.stream)
 				}
+
 				if err := writePublishStart(c.conn, streamID); err != nil {
 					return fmt.Errorf("write publish start err: %v", err)
 				}
+
+				log.Println("[RTMP] finished publish")
 			}
 
 		case 8, 9: // Audio / Video
 			if c.stream == nil {
+				log.Printf("[RTMP] case %v stream is nil", ch.TypeID)
 				continue
 			}
 
