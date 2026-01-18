@@ -46,7 +46,6 @@ func (c *Conn) Serve() error {
 		ch, err := rd.Read()
 		if err != nil {
 			if err == io.EOF {
-				log.Printf("read channel is io.EOF")
 				return nil // clean disconnect
 			}
 			return fmt.Errorf("read chunk err: %v", err)
